@@ -1,13 +1,17 @@
 package com.xiaoming.utils;
 
-
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
+import java.security.*;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.UUID;
 
 public class Coder {
     private static final char[] DIGITS_LOWER =
@@ -116,6 +120,67 @@ public class Coder {
         return aesDecrypt(key.getBytes(StandardCharsets.UTF_8), iv.getBytes(StandardCharsets.UTF_8));
     }
 
+    public Coder rsaEncrypt(String pubKeyBase64) {
+        try {
+            byte[] pubKeyBytes = Base64.getDecoder().decode(pubKeyBase64);
+            return rsaEncrypt(pubKeyBytes);
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
+    public Coder rsaEncrypt(byte[] publicKey) {
+
+        try {
+            RSAPublicKey pubKey = (RSAPublicKey) KeyFactory.getInstance("RSA")
+                    .generatePublic(new X509EncodedKeySpec(publicKey));
+            return rsaEncrypt(pubKey);
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
+    public Coder rsaEncrypt(RSAPublicKey pubKey) {
+        try {
+            Cipher cipher = Cipher.getInstance("RSA");
+            cipher.init(Cipher.ENCRYPT_MODE, pubKey);
+            data = cipher.doFinal(data);
+            return this;
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
+    public Coder rsaDecrypt(String priKeyBase64) {
+        try {
+            byte[] priKeyBytes = Base64.getDecoder().decode(priKeyBase64);
+            return rsaDecrypt(priKeyBytes);
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
+    public Coder rsaDecrypt(byte[] priKeyBytes) {
+        try {
+            RSAPrivateKey priKey = (RSAPrivateKey) KeyFactory.getInstance("RSA")
+                    .generatePrivate(new PKCS8EncodedKeySpec(priKeyBytes));
+            return rsaDecrypt(priKey);
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
+    public Coder rsaDecrypt(RSAPrivateKey priKey) {
+        try {
+            Cipher cipher = Cipher.getInstance("RSA");
+            cipher.init(Cipher.DECRYPT_MODE, priKey);
+            data = cipher.doFinal(data);
+            return this;
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
     public Coder md5() {
         try {
             MessageDigest messageDigest = MessageDigest.getInstance("MD5");
@@ -178,6 +243,35 @@ public class Coder {
 
     public String asBase64UrlSafe() {
         return Base64.getUrlEncoder().encodeToString(data);
+    }
+
+    public static String aesIv() {
+        return UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+    }
+
+    public static String aesKey() {
+        return aesIv();
+    }
+
+    public static String[] rsaKeyBase64(int bits) {
+        try {
+            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+            keyPairGenerator.initialize(bits, new SecureRandom());
+            KeyPair keyPair = keyPairGenerator.generateKeyPair();
+            RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+            RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
+            String[] keys = new String[] {
+                Base64.getEncoder().encodeToString(publicKey.getEncoded()),
+                Base64.getEncoder().encodeToString(privateKey.getEncoded())
+            };
+            return keys;
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
+    public static String[] rsaKeyBase64() {
+        return rsaKeyBase64(1024);
     }
 }
 
